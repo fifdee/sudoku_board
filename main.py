@@ -1,4 +1,5 @@
 import random
+import time
 
 
 class Board:
@@ -11,6 +12,29 @@ class Board:
             [Square3x3(), Square3x3(), Square3x3()],
         ]
 
+    def clear(self):
+        for i in range(0, 3):
+            for j in range(0, 3):
+                self.square[i][j].clear()
+
+    def get_row_values(self, i, k):
+        values = []
+        for j in range(0, 3):
+            for m in range(0, 3):
+                val = self.square[i][j].field[k][m]
+                if val:
+                    values.append(val)
+        return values
+
+    def get_col_values(self, j, m):
+        values = []
+        for i in range(0, 3):
+            for k in range(0, 3):
+                val = self.square[i][j].field[k][m]
+                if val:
+                    values.append(val)
+        return values
+
     def check_if_rows_ok(self):
         for i in range(0, 3):
             for j in range(0, 3):
@@ -20,17 +44,18 @@ class Board:
                 row = part1 + part2 + part3
                 if len(row) != len(set(row)):
                     if Board.debug:
-                        print(f'Wrong row {3 * i + j}: {row}')
+                        print(f'Wrong row: {row}')
                     if len(part1 + part2) != len(set(part1 + part2)):
-                        return False, self.square[i][1]
-                    else:
-                        return False, self.square[i][2]
+                        return False
         return True
 
     def check_if_columns_ok(self):
         for i in range(0, 3):
             for j in range(0, 3):
-                column = self.square[0][i].col[j] + self.square[1][i].col[j] + self.square[2][i].col[j]
+                part1 = self.square[0][i].col[j]
+                part2 = self.square[1][i].col[j]
+                part3 = self.square[2][i].col[j]
+                column = part1 + part2 + part3
                 if len(column) != len(set(column)):
                     if Board.debug:
                         print(f'Wrong column: {column}')
@@ -43,42 +68,40 @@ class Board:
                 if not self.square[i][j].check_if_ok():
                     if Board.debug:
                         print(f'Wrong square:\n{self.square[i][j]}')
-                    return False, self.square[i][j]
-        return True, None
+                    return False
+        return True
 
     def randomize_field_values(self):
-        for i in range(0, 3):
-            for j in range(0, 3):
-                for k in range(0, 3):
-                    for m in range(0, 3):
-                        self.square[i][j].set_field_value(k, m, random.randint(1, 9))
+        repeat = True
+        n = 0
+        t1 = time.time_ns()
+        while repeat:
+            n += 1
+            errors = 0
+            for i in range(0, 3):  # squares ROW
+                for j in range(0, 3):  # squares COL
+                    for k in range(0, 3):  # inner square ROW
+                        for m in range(0, 3):  # inner square COL
+                            if errors == 0:
+                                square_values = self.square[i][j].get_all_fields_values()
+                                row_values = self.get_row_values(i, k)
+                                col_values = self.get_col_values(j, m)
+                                choices = list(range(1, 10))
+                                for v in set(square_values + row_values + col_values):
+                                    if v in choices:
+                                        choices.remove(v)
 
-        while True:
-            if self.check_if_squares_ok()[0] and self.check_if_rows_ok()[0] and self.check_if_columns_ok():
-                break
-            else:
-                for i in range(0, 3):
-                    for j in range(0, 3):
-                        choices = [x for x in range(1, 10)]
-                        for k in range(0, 3):
-                            for m in range(0, 3):
-                                value = random.choice(choices)
-                                choices.remove(value)
-                                self.square[i][j].set_field_value(k, m, value)
+                                if len(choices) > 0:
+                                    self.square[i][j].set_field_value(k, m, random.choice(choices))
+                                else:
+                                    errors += 1
+                                    self.clear()
+            if errors == 0:
+                if self.check_if_squares_ok() and self.check_if_rows_ok() and self.check_if_columns_ok():
+                    repeat = False
 
-            # is_ok, square = self.check_if_squares_ok()
-            # if is_ok:
-            #     is_ok, square = self.check_if_rows_ok()
-            #
-            # if not is_ok:
-            #     choices = [i for i in range(1, 10)]
-            #     for k in range(0, 3):
-            #         for m in range(0, 3):
-            #             value = random.choice(choices)
-            #             choices.remove(value)
-            #             square.set_field_value(k, m, value)
-            # else:
-            #     break
+        if self.debug:
+            print(f'iterations: {n}, {(time.time_ns() - t1) / 1000 / 1000} ms')
 
     def __repr__(self):
         return_string = ''
@@ -100,9 +123,9 @@ class Square3x3:
         self.col = None
 
         self.field = [
-            [Square3x3.how_many * 10 + 1, Square3x3.how_many * 10 + 2, Square3x3.how_many * 10 + 3],
-            [Square3x3.how_many * 10 + 4, Square3x3.how_many * 10 + 5, Square3x3.how_many * 10 + 6],
-            [Square3x3.how_many * 10 + 7, Square3x3.how_many * 10 + 8, Square3x3.how_many * 10 + 9],
+            [None, None, None],
+            [None, None, None],
+            [None, None, None]
         ]
 
         self.update_rows_cols()
@@ -119,6 +142,22 @@ class Square3x3:
             [self.field[0][1], self.field[1][1], self.field[2][1]],
             [self.field[0][2], self.field[1][2], self.field[2][2]]
         ]
+
+    def clear(self):
+        self.field = [
+            [None, None, None],
+            [None, None, None],
+            [None, None, None]
+        ]
+        self.update_rows_cols()
+
+    def get_all_fields_values(self):
+        values = []
+        for i in range(0, 3):
+            for j in range(0, 3):
+                if self.field[i][j]:
+                    values.append(self.field[i][j])
+        return values
 
     def set_field_value(self, i, j, value):
         self.field[i][j] = value
@@ -138,9 +177,7 @@ class Square3x3:
 
 
 brd = Board()
-# brd.square[1][1].set_field_value(1, 1, 52)  # column check fail
-# brd.square[1][1].field[1][1] = 54  # row check fail
-# print(brd.check_if_rows_ok())
+
 brd.randomize_field_values()
 
 print(brd)

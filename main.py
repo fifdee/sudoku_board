@@ -1,183 +1,149 @@
-import random
-import time
+import tkinter as tk
+from ctypes import windll
+from copy import deepcopy
+
+from classes import Board
+
+windll.shcore.SetProcessDpiAwareness(1)
+
+entries = []
+frames = []
+boards = []
 
 
-class Board:
-    debug = True
+def handle_keypress(event):
+    label_result.config(text='')
+    print(event.char)
+    w = [o for o in entries if o['obj'] == event.widget][0]
+    print(f"square[{w['i']}][{w['j']}].field[{w['k']}][{w['m']}]")
 
-    def __init__(self):
-        self.square = [
-            [Square3x3(), Square3x3(), Square3x3()],
-            [Square3x3(), Square3x3(), Square3x3()],
-            [Square3x3(), Square3x3(), Square3x3()],
-        ]
+    allowed_values = list(range(1, 10))
 
-    def clear(self):
-        for i in range(0, 3):
-            for j in range(0, 3):
-                self.square[i][j].clear()
+    new_value = w['obj'].get() + event.char
+    print(new_value)
 
-    def get_row_values(self, i, k):
-        values = []
+    if new_value in allowed_values:
+        ...
+    else:
+        ...
+
+
+def check_solution():
+    if len(entries) > 0:
+        correct = True
+        for entry in entries:
+            i = entry['i']
+            j = entry['j']
+            k = entry['k']
+            m = entry['m']
+            value = entry['obj'].get()
+            correct_value = str(boards[1].square[i][j].field[k][m])
+            if value != correct_value:
+                correct = False
+                break
+    else:
+        correct = False
+
+    if correct:
+        print("OK!")
+        label_result.config(text="The solution is OK!")
+    else:
+        print("WRONG!")
+        label_result.config(text="Wrong solution")
+
+
+def solve_board():
+    label_result.config(text='')
+    for entry in entries:
+        i = entry['i']
+        j = entry['j']
+        k = entry['k']
+        m = entry['m']
+        value = boards[1].square[i][j].field[k][m]
+        entry['obj'].delete(0, tk.END)
+        entry['obj'].insert(0, value)
+
+
+def destroy_board():
+    label_result.config(text='')
+    entries.clear()
+    boards.clear()
+    for frame in frames:
+        frame.destroy()
+
+
+def redraw_board():
+    destroy_board()
+
+    brd = Board()
+    brd.randomize_field_values()
+    brd_solved = deepcopy(brd)
+    brd.hide_random_fields()
+
+    boards.append(brd)
+    boards.append(brd_solved)
+
+    print(brd)
+    print(brd_solved)
+
+    for i in range(0, 3):
+        # big square row
         for j in range(0, 3):
-            for m in range(0, 3):
-                val = self.square[i][j].field[k][m]
-                if val:
-                    values.append(val)
-        return values
+            #  big square col
+            frame = tk.Frame(
+                master=window,
+                relief=tk.RAISED,
+                borderwidth=1
+            )
+            frame.grid(row=i + 2, column=j, padx=5, pady=5)
+            frames.append(frame)
 
-    def get_col_values(self, j, m):
-        values = []
-        for i in range(0, 3):
             for k in range(0, 3):
-                val = self.square[i][j].field[k][m]
-                if val:
-                    values.append(val)
-        return values
+                #  field row
+                for m in range(0, 3):
+                    #  field col
+                    frame_inner = tk.Frame(
+                        master=frame,
+                        borderwidth=1
+                    )
+                    frame_inner.grid(row=k, column=m, padx=2, pady=2)
+                    frames.append(frame_inner)
 
-    def check_if_rows_ok(self):
-        for i in range(0, 3):
-            for j in range(0, 3):
-                part1 = self.square[i][0].row[j]
-                part2 = self.square[i][1].row[j]
-                part3 = self.square[i][2].row[j]
-                row = part1 + part2 + part3
-                if len(row) != len(set(row)):
-                    if Board.debug:
-                        print(f'Wrong row: {row}')
-                    if len(part1 + part2) != len(set(part1 + part2)):
-                        return False
-        return True
+                    val = brd.square[i][j].field[k][m]
+                    if val != '':
+                        label = tk.Label(master=frame_inner, width=5, text=val)
+                        label.pack()
+                    else:
+                        entry = tk.Entry(master=frame_inner, width=5, justify='center')
+                        entry.insert(0, val)
+                        entry.pack()
 
-    def check_if_columns_ok(self):
-        for i in range(0, 3):
-            for j in range(0, 3):
-                part1 = self.square[0][i].col[j]
-                part2 = self.square[1][i].col[j]
-                part3 = self.square[2][i].col[j]
-                column = part1 + part2 + part3
-                if len(column) != len(set(column)):
-                    if Board.debug:
-                        print(f'Wrong column: {column}')
-                    return False
-        return True
+                        entries.append({
+                            'obj': entry,
+                            'i': i,
+                            'j': j,
+                            'k': k,
+                            'm': m
+                        })
 
-    def check_if_squares_ok(self):
-        for i in range(0, 3):
-            for j in range(0, 3):
-                if not self.square[i][j].check_if_ok():
-                    if Board.debug:
-                        print(f'Wrong square:\n{self.square[i][j]}')
-                    return False
-        return True
-
-    def randomize_field_values(self):
-        repeat = True
-        n = 0
-        t1 = time.time_ns()
-        while repeat:
-            n += 1
-            errors = 0
-            for i in range(0, 3):  # squares ROW
-                for j in range(0, 3):  # squares COL
-                    for k in range(0, 3):  # inner square ROW
-                        for m in range(0, 3):  # inner square COL
-                            if errors == 0:
-                                square_values = self.square[i][j].get_all_fields_values()
-                                row_values = self.get_row_values(i, k)
-                                col_values = self.get_col_values(j, m)
-                                choices = list(range(1, 10))
-                                for v in set(square_values + row_values + col_values):
-                                    if v in choices:
-                                        choices.remove(v)
-
-                                if len(choices) > 0:
-                                    self.square[i][j].set_field_value(k, m, random.choice(choices))
-                                else:
-                                    errors += 1
-                                    self.clear()
-            if errors == 0:
-                if self.check_if_squares_ok() and self.check_if_rows_ok() and self.check_if_columns_ok():
-                    repeat = False
-
-        if self.debug:
-            print(f'iterations: {n}, {(time.time_ns() - t1) / 1000 / 1000} ms')
-
-    def __repr__(self):
-        return_string = ''
-        for i in range(0, 3):
-            for j in range(0, 3):
-                return_string += f'{self.square[i][0].row[j]} {self.square[i][1].row[j]} {self.square[i][2].row[j]}\n'
-            return_string += '\n'
-
-        return return_string
+    for entry in entries:
+        entry['obj'].bind("<Key>", handle_keypress)
 
 
-class Square3x3:
-    how_many = 0
+window = tk.Tk()
 
-    def __init__(self):
-        Square3x3.how_many += 1
+reload_board_btn = tk.Button(master=window, justify='center', text='New board', command=redraw_board)
+reload_board_btn.grid(row=0, column=0)
 
-        self.row = None
-        self.col = None
+solve_board_btn = tk.Button(master=window, justify='center', text='Solve board', command=solve_board)
+solve_board_btn.grid(row=0, column=1)
 
-        self.field = [
-            [None, None, None],
-            [None, None, None],
-            [None, None, None]
-        ]
+check_board_btn = tk.Button(master=window, justify='center', text='Check solution', command=check_solution)
+check_board_btn.grid(row=0, column=2)
 
-        self.update_rows_cols()
+label_result = tk.Label(master=window, justify='center', text='aaa')
+label_result.grid(row=1, column=1)
 
-    def update_rows_cols(self):
-        self.row = [
-            self.field[0],
-            self.field[1],
-            self.field[2],
-        ]
+redraw_board()
 
-        self.col = [
-            [self.field[0][0], self.field[1][0], self.field[2][0]],
-            [self.field[0][1], self.field[1][1], self.field[2][1]],
-            [self.field[0][2], self.field[1][2], self.field[2][2]]
-        ]
-
-    def clear(self):
-        self.field = [
-            [None, None, None],
-            [None, None, None],
-            [None, None, None]
-        ]
-        self.update_rows_cols()
-
-    def get_all_fields_values(self):
-        values = []
-        for i in range(0, 3):
-            for j in range(0, 3):
-                if self.field[i][j]:
-                    values.append(self.field[i][j])
-        return values
-
-    def set_field_value(self, i, j, value):
-        self.field[i][j] = value
-        self.update_rows_cols()
-
-    def check_if_ok(self):
-        values = []
-        for i in range(0, 3):
-            for j in range(0, 3):
-                values.append(self.field[i][j])
-        if len(values) != len(set(values)):
-            return False
-        return True
-
-    def __repr__(self):
-        return f"{self.field[0]}\n{self.field[1]}\n{self.field[2]}"
-
-
-brd = Board()
-
-brd.randomize_field_values()
-
-print(brd)
+window.mainloop()
